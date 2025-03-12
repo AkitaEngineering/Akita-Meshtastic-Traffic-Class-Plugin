@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AkitaTrafficClassPlugin is a Meshtastic plugin that introduces a sophisticated traffic class system, enabling enhanced network segmentation, quality of service (QoS), and reliability. Designed with Akita Engineering's high standards in mind, this plugin provides advanced features such as dynamic fragmentation, retransmission logic, congestion control, and adaptive traffic management.
+The Akita Meshtastic Traffic Class Plugin is a Meshtastic plugin that introduces a sophisticated traffic class system, enabling enhanced network segmentation, quality of service (QoS), and reliability. Designed with Akita Engineering's high standards in mind, this plugin provides advanced features such as dynamic fragmentation, retransmission logic, congestion control, and adaptive traffic management.
 
 ## Features
 

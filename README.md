@@ -69,24 +69,17 @@ meshtastic --sendtext "Hello Traffic Class 1" --dest !1 --traffic-class 1
 
 # Important Considerations
 
-* **Placeholders:** This version contains placeholders for critical functionalities. Implement these placeholders based on your specific needs.
-* **Testing:** Thoroughly test the plugin after implementing the placeholders.
-* **Security:** Implement robust security measures, especially for encryption.
+* **Placeholders:** This code contains placeholders for critical functionalities. Implement these placeholders based on your specific needs.
 
 # Further Development
 
 * **Complete Placeholders:** Implement the TODO sections for encryption, FEC, routing metric updates, reassembly logic, QoS monitoring, and configuration loading.
 * **Robust Error Handling:** Implement comprehensive error handling and logging.
 * **Performance Optimization:** Profile and optimize the code for performance on resource-constrained devices.
-* **Security Audit:** Conduct a thorough security audit to identify and address potential vulnerabilities.
-* **Test-Driven Development:** Implement a robust test suite to ensure code quality and reliability.
-* **CI/CD Integration:** Integrate the plugin into a CI/CD pipeline for automated testing and deployment.
-* **Documentation and User Interface:** Provide comprehensive documentation and a user-friendly interface for configuration and monitoring.
 * **Integration with Akita Ecosystem:** Explore integration with other Akita Engineering tools and platforms.
 * **Battery Power Optimization:** Implement advanced power-saving strategies.
 * **Firmware Over-the-Air (FOTA) Updates:** Design the plugin to support FOTA updates.
 * **Link Quality Estimation Improvements:** Implement better link quality estimation.
-* **GUI Interface:** Create a user-friendly GUI interface for configuration and monitoring.
 * **Integration with External Systems:** Explore integration with external systems, such as MQTT brokers or cloud platforms.
 
 # Contributing

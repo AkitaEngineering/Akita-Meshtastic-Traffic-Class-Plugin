@@ -6,17 +6,30 @@ The Akita Meshtastic Traffic Class Plugin is a Meshtastic plugin that introduces
 
 ## Features
 
-* **Traffic Class Segmentation:** Logical separation of network traffic for different purposes (e.g., voice, data, critical alerts).
-* **Quality of Service (QoS):** Prioritization of traffic based on configurable traffic class priorities.
-* **Reliable Transmission:** Retransmission logic for reliable traffic classes, ensuring data delivery.
-* **Congestion Control:** Dynamic adjustment of congestion windows to prevent network overload.
-* **Dynamic Fragmentation:** Adaptive fragment size based on link quality.
-* **Dynamic Traffic Class Adaptation:** Framework for automatic adjustment of traffic class parameters based on network conditions and device capabilities (requires implementation).
-* **QoS Monitoring:** Framework for monitoring and reporting QoS metrics (requires implementation).
-* **Error Correction and Forward Error Correction (FEC):** Configurable error correction (requires implementation).
-* **Configuration Parameters:** Configurable retries, FEC level, and congestion window settings.
-* **Radio State Handling:** Handles radio state changes for power saving.
-* **Reassembly timeout:** Reassembly timers implemented.
+* **Traffic Class Segmentation:**
+    * Logical separation of network traffic into different classes (e.g., voice, data, critical alerts).
+* **Quality of Service (QoS):**
+    * Prioritization of traffic based on configurable traffic class priorities.
+* **Reliable Transmission:**
+    * Retransmission logic for reliable traffic classes, ensuring data delivery.
+* **Congestion Control:**
+    * Dynamic adjustment of congestion windows to prevent network overload.
+* **Dynamic Fragmentation:**
+    * Adaptive fragment size based on link quality.
+* **Dynamic Traffic Class Adaptation:**
+    * Automatic adjustment of traffic class parameters based on network conditions, battery level, node load, and queue length.
+* **Routing Metric Adjustments:**
+    * Adjusts routing metrics based on traffic class priority and link quality, with exponential backoff for poor links.
+* **Error Correction and Forward Error Correction (FEC):**
+    * Simplified XOR error correction and FEC. Replace with robust algorithms.
+* **Encryption:**
+    * Simplified XOR encryption. Replace with robust encryption.
+* **Airtime Fairness:**
+    * Simple round-robin airtime fairness.
+* **Reassembly Timeout:**
+    * Reassembly timers with cleanup mechanism for stale fragments.
+* **Configuration Parameters:**
+    * Configurable retries, FEC level, and congestion window settings.
 
 ## Installation
 

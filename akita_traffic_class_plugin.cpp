@@ -347,18 +347,40 @@ void AkitaTrafficClassPlugin::loadConfig(){
     std::cout << "DEBUG: Loading configuration placeholder" << std::endl;
 }
 
-void AkitaTrafficClassPlugin::checkReassemblyTimers(){
+void AkitaTrafficClassPlugin::checkReassemblyTimers() {
     auto now = std::chrono::steady_clock::now();
     for (auto& trafficClassMap : reassemblyTimers) {
         for (auto it = trafficClassMap.second.begin(); it != trafficClassMap.second.end();) {
             if (it->second <= now) {
-                //TODO: Implement timeout logic for reassembly.
-                std::cout << "DEBUG: Reassembly timeout" << std::endl;
+                // Timeout occurred: Discard the fragments and log the event.
+                uint32_t trafficClass = trafficClassMap.first;
+                uint32_t fragmentId = it->first;
+
+                std::cout << "DEBUG: Reassembly timeout for traffic class " << trafficClass
+                          << ", fragment ID " << fragmentId << std::endl;
+
+                // Clear the fragment buffer for this fragment ID.
+                fragmentBuffers[trafficClass].erase(fragmentId);
+
+                // Clear the reassembly timer.
                 it = trafficClassMap.second.erase(it);
             } else {
                 ++it;
             }
         }
     }
+}
+
+void AkitaTrafficClassPlugin::handleReassembly(Packet &packet, uint32_t trafficClass) {
+    uint32_t fragmentId = packet.decoded.data.fragment_id();
+    uint32_t offset = packet.decoded.data.fragment_offset();
+
+    fragmentBuffers[trafficClass][fragmentId].push_back(packet);
+    reassemblyTimers[trafficClass][fragmentId] = std::chrono::steady_clock::now() + std::chrono::seconds(5); // 5 second timeout
+
+    // Check if all fragments have been received.
+    // TODO: Implement logic to check if all fragments have been received, handle out-of-order fragments, and reassemble the packet.
+    // TODO: Implement retransmission requests for missing fragments.
+    std::cout << "DEBUG: Handling fragment reassembly" << std::endl;
 }
 } // namespace meshtastic

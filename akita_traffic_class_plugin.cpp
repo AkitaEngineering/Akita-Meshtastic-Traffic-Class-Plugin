@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <random>
 #include <chrono>
-#include <iostream> // For logging (replace with Meshtastic's logging)
+#include <iostream>
 
 namespace meshtastic {
 
@@ -40,6 +40,7 @@ private:
     std::map<uint32_t, std::map<uint32_t, std::chrono::steady_clock::time_point>> fragmentTimers;
     std::map<uint32_t, std::map<uint32_t, std::vector<Packet>>> retransmissionQueues;
     std::map<uint32_t, std::map<uint32_t, std::chrono::steady_clock::time_point>> reassemblyTimers;
+    std::map<uint32_t, int> defaultTrafficClassPriorities; // Store default priorities
 
     void processIncomingPacket(Packet &packet);
     void processOutgoingPacket(Packet &packet);
@@ -62,6 +63,14 @@ private:
     std::random_device rd;
     std::mt19937 gen;
     std::uniform_int_distribution<> dis;
+
+    int getBatteryLevel();
+    int getLinkQuality(uint32_t nodeId);
+    int getNodeLoad(uint32_t nodeId);
+    int getNumPacketsInQueue(uint32_t trafficClass);
+
+    void encrypt(std::string& data, uint8_t key);
+    void decrypt(std::string& data, uint8_t key);
 
 };
 
@@ -101,24 +110,48 @@ void AkitaTrafficClassPlugin::configureTrafficClass(uint32_t trafficClass, int p
     trafficClassCongestionWindows[trafficClass] = congestionWindow;
 }
 
-// ... (getters as before) ...
+uint32_t AkitaTrafficClassPlugin::getTrafficClassPriority(uint32_t trafficClass) {
+    return trafficClassPriorities[trafficClass];
+}
+
+bool AkitaTrafficClassPlugin::isTrafficClassReliable(uint32_t trafficClass) {
+    return trafficClassReliability[trafficClass];
+}
+
+bool AkitaTrafficClassPlugin::isTrafficClassEncrypted(uint32_t trafficClass) {
+    return trafficClassEncryption[trafficClass];
+}
+
+int AkitaTrafficClassPlugin::getMaxFragmentSize(uint32_t trafficClass) {
+    return trafficClassFragmentSizes[trafficClass];
+}
+
+int AkitaTrafficClassPlugin::getRetries(uint32_t trafficClass) {
+    return trafficClassRetries[trafficClass];
+}
+
+int AkitaTrafficClassPlugin::getFecLevel(uint32_t trafficClass) {
+    return trafficClassFecLevels[trafficClass];
+}
+
+int AkitaTrafficClassPlugin::getCongestionWindow(uint32_t trafficClass) {
+    return trafficClassCongestionWindows[trafficClass];
+}
 
 void AkitaTrafficClassPlugin::processIncomingPacket(Packet &packet) {
     uint32_t trafficClass = packet.decoded.data.traffic_class();
     if (trafficClassPriorities.count(trafficClass)) {
         if (isTrafficClassEncrypted(trafficClass)) {
-            // TODO: Implement decryption
-            std::cout << "DEBUG: Packet decryption placeholder" << std::endl;
+            decrypt(*packet.decoded.data.mutable_payload().mutable_data(), 123);
         }
 
         if (packet.decoded.data.has_fragment_id()) {
             handleReassembly(packet, trafficClass);
         } else {
-            // TODO: Implement packet processing (forward, display, etc.)
-            std::cout << "DEBUG: Processing packet (forwarding, display, etc.)" << std::endl;
+            MESHTASTIC_DEBUG("Processing packet (forwarding, display, etc.)");
         }
     } else {
-        std::cout << "DEBUG: Dropping unknown traffic class" << std::endl;
+        MESHTASTIC_DEBUG("Dropping unknown traffic class");
     }
 }
 
@@ -133,40 +166,36 @@ void AkitaTrafficClassPlugin::processOutgoingPacket(Packet &packet) {
 }
 
 void AkitaTrafficClassPlugin::updateRoutingMetrics(NodeInfo &node) {
-    // Implement routing metric updates based on traffic class
     uint32_t nodeId = node.nodeNum;
 
-    // Iterate through all traffic classes
     for (const auto& [trafficClass, priority] : trafficClassPriorities) {
-        // Get link quality for this node
         int linkQuality = getLinkQuality(nodeId);
-
-        // Adjust routing metric based on traffic class priority and link quality
-        // Example: Higher priority traffic classes prefer better link quality
         int adjustedLinkQuality = linkQuality;
 
-        if (priority > 5) { // High priority
+        if (priority > 5) {
             if (linkQuality < 50) {
-                adjustedLinkQuality = 0; // Penalize poor links for high priority
-            } else {
-                adjustedLinkQuality = linkQuality + (priority - 5) * 5; // Reward good links
-            }
-        } else if (priority < 3){ //low priority
-            if (linkQuality < 20){
                 adjustedLinkQuality = 0;
+            } else {
+                adjustedLinkQuality = linkQuality + (priority - 5) * 5;
             }
-        } else { //medium priority
+        } else if (priority < 3){
+            if (linkQuality < 20){
+                adjustedLinkQuality = 0
+                    }
+        } else {
             adjustedLinkQuality = linkQuality;
         }
 
-        // Update routing metric for this node and traffic class
-        // TODO: Update the Meshtastic routing table with the adjustedLinkQuality
-        // Example (replace with actual Meshtastic routing API call):
-        std::cout << "DEBUG: Updating routing metric for node " << nodeId << ", traffic class " << trafficClass << ", adjusted link quality " << adjustedLinkQuality << std::endl;
+        static std::map<uint32_t, std::map<uint32_t, int>> backoffCounts;
+        if (linkQuality < 20) {
+            backoffCounts[trafficClass][nodeId]++;
+            adjustedLinkQuality = adjustedLinkQuality / (backoffCounts[trafficClass][nodeId]);
+        } else {
+            backoffCounts[trafficClass][nodeId] = 0;
+        }
 
-        // You would typically use the RadioInterface or Routing API to update the routing table
-        // with the adjusted link quality for the specific traffic class.
-        // Something like:
+        MESHTASTIC_DEBUG("Updating routing metric for node {}, traffic class {}, adjusted link quality {}", nodeId, trafficClass, adjustedLinkQuality);
+        // TODO: Update the Meshtastic routing table with the adjustedLinkQuality
         // RadioInterface::getInstance()->updateRoutingMetric(nodeId, trafficClass, adjustedLinkQuality);
     }
 }
@@ -178,17 +207,17 @@ int AkitaTrafficClassPlugin::getLinkQuality(uint32_t nodeId) {
 }
 
 void AkitaTrafficClassPlugin::transmitPackets() {
-    std::vector<std::pair<int, uint32_t>> priorityList;
-    for (auto const &pair : trafficClassPriorities) {
-        priorityList.emplace_back(pair.second, pair.first);
+    std::vector<uint32_t> trafficClasses;
+    for (const auto& pair : trafficClassPriorities) {
+        trafficClasses.push_back(pair.first);
     }
-    std::sort(priorityList.begin(), priorityList.end());
 
-    for (const auto &pair : priorityList) {
-        uint32_t trafficClass = pair.second;
-        int congestionWindow = getCongestionWindow(trafficClass);
-        int packetsSent = 0;
-        while (!trafficClassQueues[trafficClass].empty() && packetsSent < congestionWindow) {
+    static size_t currentTrafficClassIndex = 0;
+
+    for (size_t i = 0; i < trafficClasses.size(); ++i) {
+        uint32_t trafficClass = trafficClasses[currentTrafficClassIndex];
+
+        if (!trafficClassQueues[trafficClass].empty()) {
             Packet packet = trafficClassQueues[trafficClass].front();
             trafficClassQueues[trafficClass].pop();
 
@@ -196,10 +225,17 @@ void AkitaTrafficClassPlugin::transmitPackets() {
                 applyErrorCorrection(packet, trafficClass);
                 applyForwardErrorCorrection(packet, trafficClass);
             }
-            // TODO: Implement Airtime fairness.
+            if(isTrafficClassEncrypted(trafficClass)){
+                encrypt(*packet.decoded.data.mutable_payload().mutable_data(), 123);
+            }
+
             RadioInterface::getInstance()->sendPacket(packet);
-            packetsSent++;
+
+            currentTrafficClassIndex = (currentTrafficClassIndex + 1) % trafficClasses.size();
+            return;
         }
+
+        currentTrafficClassIndex = (currentTrafficClassIndex + 1) % trafficClasses.size();
     }
 }
 
@@ -231,20 +267,25 @@ void AkitaTrafficClassPlugin::handleReassembly(Packet &packet, uint32_t trafficC
     uint32_t offset = packet.decoded.data.fragment_offset();
 
     fragmentBuffers[trafficClass][fragmentId].push_back(packet);
-    reassemblyTimers[trafficClass][fragmentId] = std::chrono::steady_clock::now() + std::chrono::seconds(5); // 5 second timeout
+    reassemblyTimers[trafficClass][fragmentId] = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+
     // TODO: Implement logic to check if all fragments have been received, handle out-of-order fragments, and reassemble the packet.
     // TODO: Implement retransmission requests for missing fragments.
-    std::cout << "DEBUG: Handling fragment reassembly" << std::endl;
+    MESHTASTIC_DEBUG("Handling fragment reassembly");
 }
 
-void AkitaTrafficClassPlugin::applyErrorCorrection(Packet& packet, uint32_t trafficClass){
-    // TODO: Implement error correction (e.g., checksum)
-    std::cout << "DEBUG: Applying error correction" << std::endl;
+void AkitaTrafficClassPlugin::applyErrorCorrection(Packet& packet, uint32_t trafficClass) {
+    std::string& payload = packet.decoded.data.mutable_payload();
+    uint8_t checksum = 0;
+    for (uint8_t byte : payload) {
+        checksum ^= byte;
+    }
+    payload += checksum;
 }
 
 void AkitaTrafficClassPlugin::applyForwardErrorCorrection(Packet& packet, uint32_t trafficClass){
-    // TODO: Implement forward error correction (e.g., Reed-Solomon)
-    std::cout << "DEBUG: Applying forward error correction" << std::endl;
+    std::string& payload = packet.decoded.data.mutable_payload();
+    payload += (uint8_t)(payload[0] ^ payload[payload.size()-1]);
 }
 
 void AkitaTrafficClassPlugin::handleRetransmission(uint32_t trafficClass, uint32_t fragmentId) {
@@ -253,9 +294,9 @@ void AkitaTrafficClassPlugin::handleRetransmission(uint32_t trafficClass, uint32
             retransmissionQueues[trafficClass][fragmentId].push_back(fragment);
         }
         fragmentRetryCounts[trafficClass][fragmentId]++;
-        fragmentTimers[trafficClass][fragmentId] = std::chrono::steady_clock::now() + std::chrono::milliseconds(2000); // 2 second retry delay
+        fragmentTimers[trafficClass][fragmentId] = std::chrono::steady_clock::now() + std::chrono::milliseconds(2000);
     } else {
-        std::cout << "DEBUG: Max retransmissions reached" << std::endl;
+        MESHTASTIC_DEBUG("Max retransmissions reached");
     }
 }
 
@@ -293,45 +334,43 @@ void AkitaTrafficClassPlugin::dynamicFragmentSize(uint32_t trafficClass, int lin
 }
 
 void AkitaTrafficClassPlugin::dynamicTrafficClassAdaptation() {
-    // Example implementation: Adjust priority based on battery level, link quality, node load, and queue length.
-
     for (auto& [trafficClass, priority] : trafficClassPriorities) {
         int batteryLevel = getBatteryLevel();
         int linkQuality = getLinkQuality(RadioInterface::getInstance()->getNodeId());
         int nodeLoad = getNodeLoad(RadioInterface::getInstance()->getNodeId());
         int queueLength = getNumPacketsInQueue(trafficClass);
 
-        if (batteryLevel < 20) { // Low battery
-            if (trafficClass != 0) { // Don't change priority of critical traffic class 0
-                if (priority > 1) {
-                    trafficClassPriorities[trafficClass] = std::max(1, priority - 1); // Reduce priority
-                    std::cout << "DEBUG: Traffic class " << trafficClass << " priority reduced due to low battery." << std::endl;
-                }
-            }
-        } else if (linkQuality < 30) { // Poor link quality
+        if (batteryLevel < 20) {
             if (trafficClass != 0) {
                 if (priority > 1) {
-                    trafficClassPriorities[trafficClass] = std::max(1, priority - 1); // Reduce priority
-                    std::cout << "DEBUG: Traffic class " << trafficClass << " priority reduced due to poor link quality." << std::endl;
+                    trafficClassPriorities[trafficClass] = std::max(1, priority - 1);
+                    MESHTASTIC_DEBUG("Traffic class {} priority reduced due to low battery.", trafficClass);
                 }
             }
-        } else if (nodeLoad > 80) { // High node load
+        } else if (linkQuality < 30) {
             if (trafficClass != 0) {
                 if (priority > 1) {
-                    trafficClassPriorities[trafficClass] = std::max(1, priority - 1); // Reduce priority
-                    std::cout << "DEBUG: Traffic class " << trafficClass << " priority reduced due to high node load." << std::endl;
+                    trafficClassPriorities[trafficClass] = std::max(1, priority - 1);
+                    MESHTASTIC_DEBUG("Traffic class {} priority reduced due to poor link quality.", trafficClass);
                 }
             }
-        } else if (queueLength > 20 && priority > 1) { // Long queue
+        } else if (nodeLoad > 80) {
             if (trafficClass != 0) {
-                trafficClassPriorities[trafficClass] = std::max(1, priority - 1); // Reduce priority
-                std::cout << "DEBUG: Traffic class " << trafficClass << " priority reduced due to long queue." << std::endl;
+                if (priority > 1) {
+                    trafficClassPriorities[trafficClass] = std::max(1, priority - 1);
+                    MESHTASTIC_DEBUG("Traffic class {} priority reduced due to high node load.", trafficClass);
+                }
+            }
+        } else if (queueLength > 20 && priority > 1) {
+            if (trafficClass != 0) {
+                trafficClassPriorities[trafficClass] = std::max(1, priority - 1);
+                    MESHTASTIC_DEBUG("Traffic class {} priority reduced due to long queue.", trafficClass);
+                }
             }
         } else {
-            // Restore default priority if conditions improve
             if (trafficClassPriorities[trafficClass] != defaultTrafficClassPriorities[trafficClass]) {
                 trafficClassPriorities[trafficClass] = defaultTrafficClassPriorities[trafficClass];
-                std::cout << "DEBUG: Traffic class " << trafficClass << " priority restored." << std::endl;
+                MESHTASTIC_DEBUG("Traffic class {} priority restored.", trafficClass);
             }
         }
     }
@@ -339,12 +378,26 @@ void AkitaTrafficClassPlugin::dynamicTrafficClassAdaptation() {
 
 void AkitaTrafficClassPlugin::monitorQoS() {
     // TODO: Implement QoS monitoring
-    std::cout << "DEBUG: QoS monitoring placeholder" << std::endl;
+    MESHTASTIC_DEBUG("QoS monitoring placeholder");
 }
 
-void AkitaTrafficClassPlugin::loadConfig(){
-    //TODO: Implement loading config from device storage.
-    std::cout << "DEBUG: Loading configuration placeholder" << std::endl;
+void AkitaTrafficClassPlugin::loadConfig() {
+    // Simulate loading from JSON
+    std::string jsonConfig = "{\"trafficClasses\": [{\"id\": 1, \"priority\": 5}, {\"id\": 2, \"priority\": 3}]}";
+    // TODO: Replace with actual Meshtastic JSON parsing
+    // Example:
+    // auto config = nlohmann::json::parse(jsonConfig);
+    // for (auto& tc : config["trafficClasses"]) {
+    //     configureTrafficClass(tc["id"], tc["priority"], ...);
+    // }
+    trafficClassPriorities[1] = 5;
+    trafficClassPriorities[2] = 3;
+
+    for (const auto& [trafficClass, priority] : trafficClassPriorities) {
+        defaultTrafficClassPriorities[trafficClass] = priority;
+    }
+
+    MESHTASTIC_DEBUG("Loading configuration placeholder");
 }
 
 void AkitaTrafficClassPlugin::checkReassemblyTimers() {
@@ -352,17 +405,8 @@ void AkitaTrafficClassPlugin::checkReassemblyTimers() {
     for (auto& trafficClassMap : reassemblyTimers) {
         for (auto it = trafficClassMap.second.begin(); it != trafficClassMap.second.end();) {
             if (it->second <= now) {
-                // Timeout occurred: Discard the fragments and log the event.
-                uint32_t trafficClass = trafficClassMap.first;
-                uint32_t fragmentId = it->first;
-
-                std::cout << "DEBUG: Reassembly timeout for traffic class " << trafficClass
-                          << ", fragment ID " << fragmentId << std::endl;
-
-                // Clear the fragment buffer for this fragment ID.
-                fragmentBuffers[trafficClass].erase(fragmentId);
-
-                // Clear the reassembly timer.
+                MESHTASTIC_DEBUG("Reassembly timeout for traffic class {}, fragment ID {}", trafficClassMap.first, it->first);
+                fragmentBuffers[trafficClassMap.first].erase(it->first);
                 it = trafficClassMap.second.erase(it);
             } else {
                 ++it;
@@ -371,16 +415,30 @@ void AkitaTrafficClassPlugin::checkReassemblyTimers() {
     }
 }
 
-void AkitaTrafficClassPlugin::handleReassembly(Packet &packet, uint32_t trafficClass) {
-    uint32_t fragmentId = packet.decoded.data.fragment_id();
-    uint32_t offset = packet.decoded.data.fragment_offset();
-
-    fragmentBuffers[trafficClass][fragmentId].push_back(packet);
-    reassemblyTimers[trafficClass][fragmentId] = std::chrono::steady_clock::now() + std::chrono::seconds(5); // 5 second timeout
-
-    // Check if all fragments have been received.
-    // TODO: Implement logic to check if all fragments have been received, handle out-of-order fragments, and reassemble the packet.
-    // TODO: Implement retransmission requests for missing fragments.
-    std::cout << "DEBUG: Handling fragment reassembly" << std::endl;
+int AkitaTrafficClassPlugin::getBatteryLevel() {
+    // TODO: Implement logic to get battery level from Meshtastic API
+    // Example (replace with actual Meshtastic API call):
+    return 80; // Placeholder
 }
+
+int AkitaTrafficClassPlugin::getNodeLoad(uint32_t nodeId) {
+    // TODO: Implement logic to get node load from meshtastic API.
+    return 50; // placeholder
+}
+
+int AkitaTrafficClassPlugin::getNumPacketsInQueue(uint32_t trafficClass) {
+    // Get the number of packets in the specified traffic class queue
+    return trafficClassQueues[trafficClass].size();
+}
+
+void AkitaTrafficClassPlugin::encrypt(std::string& data, uint8_t key) {
+    for (char& byte : data) {
+        byte ^= key;
+    }
+}
+
+void AkitaTrafficClassPlugin::decrypt(std::string& data, uint8_t key) {
+    encrypt(data, key); // XOR is its own inverse
+}
+
 } // namespace meshtastic

@@ -7,7 +7,7 @@ The Akita Meshtastic Traffic Class Plugin is a Meshtastic plugin that introduces
 ## Features
 
 * **Traffic Class Segmentation:**
-    * Logical separation of network traffic into different classes (e.g., voice, data, critical alerts).
+    * Logical separation of network traffic into different classes (e.g., data, critical alerts).
 * **Quality of Service (QoS):**
     * Prioritization of traffic based on configurable traffic class priorities.
 * **Reliable Transmission:**

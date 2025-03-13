@@ -133,8 +133,48 @@ void AkitaTrafficClassPlugin::processOutgoingPacket(Packet &packet) {
 }
 
 void AkitaTrafficClassPlugin::updateRoutingMetrics(NodeInfo &node) {
-    // TODO: Implement routing metric updates based on traffic class
-    std::cout << "DEBUG: Updating routing metrics" << std::endl;
+    // Implement routing metric updates based on traffic class
+    uint32_t nodeId = node.nodeNum;
+
+    // Iterate through all traffic classes
+    for (const auto& [trafficClass, priority] : trafficClassPriorities) {
+        // Get link quality for this node
+        int linkQuality = getLinkQuality(nodeId);
+
+        // Adjust routing metric based on traffic class priority and link quality
+        // Example: Higher priority traffic classes prefer better link quality
+        int adjustedLinkQuality = linkQuality;
+
+        if (priority > 5) { // High priority
+            if (linkQuality < 50) {
+                adjustedLinkQuality = 0; // Penalize poor links for high priority
+            } else {
+                adjustedLinkQuality = linkQuality + (priority - 5) * 5; // Reward good links
+            }
+        } else if (priority < 3){ //low priority
+            if (linkQuality < 20){
+                adjustedLinkQuality = 0;
+            }
+        } else { //medium priority
+            adjustedLinkQuality = linkQuality;
+        }
+
+        // Update routing metric for this node and traffic class
+        // TODO: Update the Meshtastic routing table with the adjustedLinkQuality
+        // Example (replace with actual Meshtastic routing API call):
+        std::cout << "DEBUG: Updating routing metric for node " << nodeId << ", traffic class " << trafficClass << ", adjusted link quality " << adjustedLinkQuality << std::endl;
+
+        // You would typically use the RadioInterface or Routing API to update the routing table
+        // with the adjusted link quality for the specific traffic class.
+        // Something like:
+        // RadioInterface::getInstance()->updateRoutingMetric(nodeId, trafficClass, adjustedLinkQuality);
+    }
+}
+
+int AkitaTrafficClassPlugin::getLinkQuality(uint32_t nodeId) {
+    // TODO: Implement logic to get link quality from Meshtastic API
+    // Example (replace with actual Meshtastic API call):
+    return 60; // Placeholder
 }
 
 void AkitaTrafficClassPlugin::transmitPackets() {

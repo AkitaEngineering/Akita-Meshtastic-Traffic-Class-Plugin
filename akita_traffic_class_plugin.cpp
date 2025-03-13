@@ -253,8 +253,48 @@ void AkitaTrafficClassPlugin::dynamicFragmentSize(uint32_t trafficClass, int lin
 }
 
 void AkitaTrafficClassPlugin::dynamicTrafficClassAdaptation() {
-    // TODO: Implement dynamic traffic class adaptation
-    std::cout << "DEBUG: Dynamic traffic class adaptation placeholder" << std::endl;
+    // Example implementation: Adjust priority based on battery level, link quality, node load, and queue length.
+
+    for (auto& [trafficClass, priority] : trafficClassPriorities) {
+        int batteryLevel = getBatteryLevel();
+        int linkQuality = getLinkQuality(RadioInterface::getInstance()->getNodeId());
+        int nodeLoad = getNodeLoad(RadioInterface::getInstance()->getNodeId());
+        int queueLength = getNumPacketsInQueue(trafficClass);
+
+        if (batteryLevel < 20) { // Low battery
+            if (trafficClass != 0) { // Don't change priority of critical traffic class 0
+                if (priority > 1) {
+                    trafficClassPriorities[trafficClass] = std::max(1, priority - 1); // Reduce priority
+                    std::cout << "DEBUG: Traffic class " << trafficClass << " priority reduced due to low battery." << std::endl;
+                }
+            }
+        } else if (linkQuality < 30) { // Poor link quality
+            if (trafficClass != 0) {
+                if (priority > 1) {
+                    trafficClassPriorities[trafficClass] = std::max(1, priority - 1); // Reduce priority
+                    std::cout << "DEBUG: Traffic class " << trafficClass << " priority reduced due to poor link quality." << std::endl;
+                }
+            }
+        } else if (nodeLoad > 80) { // High node load
+            if (trafficClass != 0) {
+                if (priority > 1) {
+                    trafficClassPriorities[trafficClass] = std::max(1, priority - 1); // Reduce priority
+                    std::cout << "DEBUG: Traffic class " << trafficClass << " priority reduced due to high node load." << std::endl;
+                }
+            }
+        } else if (queueLength > 20 && priority > 1) { // Long queue
+            if (trafficClass != 0) {
+                trafficClassPriorities[trafficClass] = std::max(1, priority - 1); // Reduce priority
+                std::cout << "DEBUG: Traffic class " << trafficClass << " priority reduced due to long queue." << std::endl;
+            }
+        } else {
+            // Restore default priority if conditions improve
+            if (trafficClassPriorities[trafficClass] != defaultTrafficClassPriorities[trafficClass]) {
+                trafficClassPriorities[trafficClass] = defaultTrafficClassPriorities[trafficClass];
+                std::cout << "DEBUG: Traffic class " << trafficClass << " priority restored." << std::endl;
+            }
+        }
+    }
 }
 
 void AkitaTrafficClassPlugin::monitorQoS() {

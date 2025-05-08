@@ -1,0 +1,104 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Compiled Shared libraries (and dlopen wrappers)
+*.sl
+*.so
+*.so.*
+*.dll
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.wasm
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Build directories
+build/
+Build/
+build-*/
+Build-*/
+**/build/
+**/Build/
+**/build-*/
+**/Build-*/
+bin/
+Bin/
+**/bin/
+**/Bin/
+lib/
+Lib/
+**/lib/
+**/Lib/
+obj/
+Obj/
+**/obj/
+**/Obj/
+release/
+Release/
+**/release/
+**/Release/
+debug/
+Debug/
+**/debug/
+**/Debug/
+
+# PlatformIO specific files
+.pio/
+.pioenvs/
+.piolibdeps/
+.clang_complete
+.cproject
+.project
+.settings/
+lib_backup/
+
+# VS Code specific files
+.vscode/
+*.code-workspace
+
+# CMake specific files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+install_manifest.txt
+Makefile
+DartConfiguration.tcl
+
+# Operating System generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Other temporary files
+*.swp
+*~
+*.bak
+*.tmp
+

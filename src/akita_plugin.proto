@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package meshtastic;
+
+// Represents the payload for packets handled by the Akita Traffic Class Plugin.
+// This message will be embedded within the main MeshPacket's payload field
+// when the portnum matches the Akita plugin's designated port.
+message AkitaPacketPayload {
+    // The original payload data before Akita plugin processing (e.g., fragmentation).
+    // For fragmented packets, this will be a chunk of the original data.
+    // If encryption is enabled, this chunk will be the *ciphertext*.
+    bytes original_payload_chunk = 1;
+
+    // The assigned traffic class for this packet/fragment.
+    uint32 traffic_class_id = 2;
+
+    // --- Fragmentation Fields ---
+    bool is_fragment = 3;
+    uint32 fragment_id = 4;
+    uint32 fragment_index = 5;
+    uint32 fragment_count = 6;
+    uint32 original_message_size = 7;
+
+
+    // --- Reliability / Retransmission Fields ---
+    uint32 sequence_number = 8;
+    bool ack_requested = 9;
+
+
+    // --- Encryption & FEC ---
+    // Initialization Vector (IV) or Nonce used for encryption (e.g., 16 bytes for AES-CBC/CTR).
+    // MUST be unique for each encryption operation with the same key.
+    // Sent along with the ciphertext.
+    bytes encryption_iv = 10; // Changed from encryption_nonce for clarity with AES-CBC example
+
+    // Forward Error Correction (FEC) parity data. Generated from the *plaintext* data chunk.
+    // Sent alongside the (potentially encrypted) original_payload_chunk.
+    bytes fec_data = 11;
+
+    // --- Future Expansion ---
+    // uint32 custom_qos_metric = 12;
+}
+
+// Control messages specific to the Akita plugin (e.g., ACKs).
+message AkitaControlMessage {
+    enum ControlType {
+        UNDEFINED = 0;
+        REQUEST_RETRANSMISSION = 1;
+        ACK_FRAGMENT = 2;
+        // Add other control types as needed
+    }
+    ControlType control_type = 1;
+    uint32 target_fragment_id = 2; 
+    uint32 target_fragment_index = 3; 
+    // Add other control-specific fields
+}
+
+// Outer envelope for Akita-specific payloads on the plugin's portnum.
+message AkitaPluginEnvelope {
+    oneof payload_variant {
+        AkitaPacketPayload data_payload = 1;
+        AkitaControlMessage control_payload = 2;
+    }
+}
+
